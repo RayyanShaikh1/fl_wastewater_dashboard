@@ -1,0 +1,23 @@
+# Local Python environment
+.venv/
+venv/
+env/
+
+# Python cache and tooling files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local environment and editor files
+.env
+.env.*
+.vscode/
+
+# Downloaded/generated datasets
+data/*.csv
+data/*.geojson
+
+# Generated charts
+plots/*.png
