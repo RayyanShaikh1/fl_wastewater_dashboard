@@ -18,6 +18,8 @@ __pycache__/
 # Downloaded/generated datasets
 data/*.csv
 data/*.geojson
+data/pnp_years.json
+data/*.sqlite3
 
 # Generated charts
 plots/*.png
