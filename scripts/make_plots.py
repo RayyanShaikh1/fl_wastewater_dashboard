@@ -1,13 +1,19 @@
-"""Create exploratory PNG plots from the downloaded WAFR CSV.
+"""Create exploratory PNG plots from the downloaded WAFR GeoJSON.
 Run: python scripts/make_plots.py
 """
+import json
 from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 ROOT=Path(__file__).resolve().parents[1]; DATA=ROOT/'data'; OUT=ROOT/'plots'; OUT.mkdir(exist_ok=True)
-p=DATA/'fl_wastewater_facilities.csv'
-if not p.exists(): raise SystemExit('Missing data/fl_wastewater_facilities.csv. Run python scripts/download_data.py first.')
-df=pd.read_csv(p,low_memory=False)
+p=DATA/'fl_wastewater_facilities.geojson'
+if not p.exists(): raise SystemExit('Missing data/fl_wastewater_facilities.geojson. Run python scripts/download_data.py first.')
+with p.open(encoding='utf-8') as handle:
+    features=json.load(handle).get('features',[])
+df=pd.DataFrame([{**(f.get('properties') or {}),
+                  'longitude':(f.get('geometry') or {}).get('coordinates',[None,None])[0],
+                  'latitude':(f.get('geometry') or {}).get('coordinates',[None,None])[1]}
+                 for f in features])
 lat=next((c for c in df.columns if c.lower() in ('latitude','lat')),None); lon=next((c for c in df.columns if c.lower() in ('longitude','lon','long')),None)
 if lat is None or lon is None: raise SystemExit('No latitude/longitude columns found in downloaded facility file.')
 xy=df[[lon,lat]].apply(pd.to_numeric,errors='coerce').dropna(); xy=xy[xy[lat].between(24,32.5)&xy[lon].between(-88,-79)]

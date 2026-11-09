@@ -14,6 +14,12 @@ from urllib.parse import parse_qs, urlparse
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 DB = DATA / "incidents.sqlite3"
+FLOOD_RELATED_TYPES = (
+    "Hurricane / tropical storm",
+    "Flooding",
+    "Storm surge",
+    "Heavy rainfall",
+)
 
 
 def build_database():
@@ -38,6 +44,8 @@ def build_database():
                 county TEXT,
                 latitude REAL,
                 longitude REAL,
+                incident_type TEXT,
+                gallons_discharged REAL,
                 properties TEXT NOT NULL
             );
             CREATE INDEX incidents_year_idx ON incidents(year);
@@ -67,11 +75,13 @@ def build_database():
                     county,
                     coordinates[1],
                     coordinates[0],
+                    properties.get("incident_type") or "Other",
+                    properties.get("gallons_discharged"),
                     json.dumps(properties, ensure_ascii=False),
                 )
             )
         connection.executemany(
-            "INSERT OR REPLACE INTO incidents VALUES (?, ?, ?, ?, ?, ?, ?)", rows
+            "INSERT OR REPLACE INTO incidents VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", rows
         )
         connection.commit()
     finally:
@@ -93,9 +103,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.send_json(
                 {
                     "years": [
-                        {"year": row[0], "incidents": row[1]}
+                        {"year": row[0], "incidents": row[1], "flooding": row[2]}
                         for row in self.query(
-                            "SELECT year, COUNT(*) FROM incidents GROUP BY year ORDER BY year"
+                            "SELECT year, COUNT(*), SUM(CASE WHEN incident_type IN "
+                            "(?, ?, ?, ?) THEN 1 ELSE 0 END) "
+                            "FROM incidents GROUP BY year ORDER BY year",
+                            FLOOD_RELATED_TYPES,
                         )
                     ],
                     "counties": [
@@ -129,6 +142,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     "OBJECTID": object_id,
                     "INCIDENT_NUMBER": source.get("INCIDENT_NUMBER"),
                     "INCIDENT_NAME": source.get("INCIDENT_NAME"),
+                    "INCIDENT_REPORT": source.get("INCIDENT_REPORT"),
+                    "incident_type": source.get("incident_type"),
+                    "gallons_discharged": source.get("gallons_discharged"),
                     "FACILITY_NAME": source.get("FACILITY_NAME"),
                     "AFFECTED_COUNTIES": source.get("AFFECTED_COUNTIES"),
                     "DATE_TIME_OF_REPORT": source.get("DATE_TIME_OF_REPORT"),
